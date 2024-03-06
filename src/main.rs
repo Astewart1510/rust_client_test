@@ -1,5 +1,7 @@
 use rust_client_test::check_balance;
+use rust_client_test::fetch_deserialise_my_movie;
 use rust_client_test::movie_review_transaction;
+use rust_client_test::MyMovie;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{signature::Keypair, signer::Signer};
 
@@ -16,15 +18,24 @@ fn main() {
     );
     println!("Hello, Movie Review Transaction!");
 
-    match movie_review_transaction(&rpc_client, &keypair) {
-        Ok(signature) => {
-            println!(
-                "Movie transaction was successful, signature: {:?}",
-                signature
-            );
-        }
-        Err(e) => {
-            println!("Error: {:?}", e);
-        }
-    }
+    // match movie_review_transaction(&rpc_client, &keypair) {
+    //     Ok(signature) => {
+    //         println!(
+    //             "Movie transaction was successful, signature: {:?}",
+    //             signature
+    //         );
+    //     }
+    //     Err(e) => {
+    //         println!("Error: {:?}", e);
+    //     }
+    // }
+
+    let movie_data = MyMovie {
+        initialized: true,
+        rating: 5,
+        title: "The Matrix".to_string(),
+        description: "A movie about a little family with super powers.".to_string(),
+    };
+    let result = fetch_deserialise_my_movie(&rpc_client, &keypair, &movie_data);
+    println!("{:?}", result);
 }
