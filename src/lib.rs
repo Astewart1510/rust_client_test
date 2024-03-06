@@ -1,4 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use solana_client::nonblocking::rpc_client;
 use solana_client::rpc_client::RpcClient;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::instruction::AccountMeta;
@@ -23,6 +24,14 @@ pub struct MyMovieInstruction {
     pub variant: u8,
     pub title: String,
     pub rating: u8,
+    pub description: String,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct MyMovie {
+    pub initialized: bool,
+    pub rating: u8,
+    pub title: String,
     pub description: String,
 }
 
@@ -60,4 +69,31 @@ pub fn movie_review_transaction(
     transaction.sign(&[sender], recent_blockhash);
 
     Ok(rpc_client.send_and_confirm_transaction(&transaction)?)
+}
+
+pub fn fetch_deserialise_my_movie(
+    rpc_client: &RpcClient,
+    sender: &Keypair,
+    movie_data: &MyMovie,
+) -> Result<(), Box<dyn Error>> {
+    let program_id = Pubkey::from_str(MOVIE_PROGRAM_ADDRESS)?;
+    let program_derived_address = Pubkey::find_program_address(
+        &[sender.pubkey().as_ref(), movie_data.title.as_bytes()],
+        &program_id,
+    )
+    .0;
+
+    println!("Program Derived Address: {:?}", program_derived_address);
+    let account_data = rpc_client.get_account(&program_derived_address)?;
+    println!(
+        "Raw data for {}: {:?}",
+        program_derived_address, &account_data.data
+    );
+    let deserialised_movie_data = MyMovie::try_from_slice(&account_data.data)?;
+    println!("Movie Title: {}", deserialised_movie_data.title);
+    println!("Movie Rating: {}", deserialised_movie_data.rating);
+    println!("Movie Description: {}", deserialised_movie_data.description);
+    println!("Movie Address: {}", program_derived_address);
+
+    Ok(())
 }
