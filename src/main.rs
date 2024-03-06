@@ -1,14 +1,7 @@
-use std::str::FromStr;
-
-use dotenv::dotenv;
-use rust_client_test::ping_program_transaction;
-use rust_client_test::{check_balance, transfer};
+use rust_client_test::check_balance;
+use rust_client_test::movie_review_transaction;
 use solana_client::rpc_client::RpcClient;
-use solana_program::pubkey::Pubkey;
-use solana_sdk::{
-    signature::Keypair,
-    signer::{keypair, Signer},
-};
+use solana_sdk::{signature::Keypair, signer::Signer};
 
 const URL: &str = "https://api.devnet.solana.com";
 
@@ -21,34 +14,12 @@ fn main() {
         "balance: {:?}",
         (check_balance(&rpc_client, &keypair.pubkey()).unwrap())
     );
-    println!("Hello, world!");
+    println!("Hello, Movie Review Transaction!");
 
-    let receiver = Pubkey::from_str("37e31h3VDfBThRnz87cRxYsG6S5uVGG8KpaPfeFL5V37").unwrap();
-
-    let transfer_amount = 0.01;
-
-    match transfer(&rpc_client, &keypair, &receiver, transfer_amount) {
+    match movie_review_transaction(&rpc_client, &keypair) {
         Ok(signature) => {
             println!(
-                "Tranfer of {} SOL was successful, signature: {:?}",
-                transfer_amount, signature
-            );
-            if let Ok(balance) = check_balance(&rpc_client, &keypair.pubkey()) {
-                println!("New balance of sender: {}", balance);
-            }
-            if let Ok(balance) = check_balance(&rpc_client, &receiver) {
-                println!("New balance of receiver: {}", balance);
-            }
-        }
-        Err(e) => {
-            println!("Error: {:?}", e);
-        }
-    }
-
-    match ping_program_transaction(&rpc_client, &keypair) {
-        Ok(signature) => {
-            println!(
-                "Ping program transaction was successful, signature: {:?}",
+                "Movie transaction was successful, signature: {:?}",
                 signature
             );
         }
