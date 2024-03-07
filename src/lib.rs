@@ -1,16 +1,23 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_client::nonblocking::rpc_client;
 use solana_client::rpc_client::RpcClient;
 use solana_program::pubkey::Pubkey;
+use solana_program::system_instruction::create_account;
 use solana_sdk::instruction::AccountMeta;
 use solana_sdk::signer::Signer;
-use solana_sdk::system_program;
+use solana_sdk::{system_instruction, system_program};
 use solana_sdk::transaction::Transaction;
 use solana_sdk::{
     instruction::Instruction,
     signature::{Keypair, Signature},
 };
+use spl_token::instruction::initialize_mint;
+use spl_token::instruction::initialize_account;
+use spl_token::instruction::mint_to;
+use spl_token::state::{Account};
 use std::{error::Error, str::FromStr}; // Add this import // Add this import
+use spl_token::state::Mint;
+use solana_sdk::program_pack::Pack;
+
 
 const LAMPORTS_PER_SOL: f64 = 1000000000.0;
 const MOVIE_PROGRAM_ADDRESS: &str = "CenYq6bDRB7p73EjsPEpiYN7uveyPUTdXkDkgUduboaN";
@@ -96,4 +103,122 @@ pub fn fetch_deserialise_my_movie(
     println!("Movie Address: {}", program_derived_address);
 
     Ok(())
+}
+
+pub fn initialize_token_mint(
+    rpc_client: &RpcClient,
+    payer: &Keypair,
+    mint_keypair: &Keypair,
+) -> Result<Signature, Box<dyn Error>>{
+    let token_program_id = spl_token::id();
+    let minimumrentbalance = rpc_client.get_minimum_balance_for_rent_exemption(Mint::LEN)?;
+
+     // Create an instruction to create a new token account for the mint
+    let create_account_instruction = create_account(
+        &payer.pubkey(),
+       &mint_keypair.pubkey(),
+       minimumrentbalance,
+       Mint::LEN as u64,
+       &token_program_id,
+   );
+    // Create an instruction to initialize the token mint with 9 decimals
+    let initialize_mint_instruction = initialize_mint(
+        &token_program_id,
+        &mint_keypair.pubkey(),
+        &payer.pubkey(),
+        None,
+        9,
+    )?;
+
+   
+    // Create a transaction that includes both instructions
+    let recent_blockhash = rpc_client.get_latest_blockhash()?;
+    let mut transaction = Transaction::new_with_payer(
+        &[create_account_instruction, initialize_mint_instruction],
+        Some(&payer.pubkey()),
+    );
+    transaction.sign(&[&payer, &mint_keypair], recent_blockhash);
+
+    // Send and confirm the transaction
+    Ok(rpc_client.send_and_confirm_transaction(&transaction)?)
+}
+
+pub fn initialize_token_account(
+    rpc_client: &RpcClient,
+    payer: &Keypair,
+    mint_keypair: &Keypair,
+    token_account_keypair: &Keypair,
+) -> Result<Signature, Box<dyn Error>> {
+    let token_program_id = spl_token::id();
+
+    // Generate a new token account keypair
+    let minimum_rent_balance = rpc_client.get_minimum_balance_for_rent_exemption(Account::LEN)?;
+
+    // Create an instruction to create a new token account for the mint
+    let create_account_instruction = create_account(
+        &payer.pubkey(),
+        &token_account_keypair.pubkey(),
+        minimum_rent_balance,
+        Account::LEN as u64,
+        &token_program_id,
+    );
+
+    // Create an instruction to associate the token account with the mint
+    let initialize_account_instruction = initialize_account(
+        &token_program_id,
+        &token_account_keypair.pubkey(),
+        &mint_keypair.pubkey(),
+        &payer.pubkey(),
+    )?;
+
+    // Create a transaction that includes both instructions
+    let recent_blockhash = rpc_client.get_latest_blockhash()?;
+    let mut transaction = Transaction::new_with_payer(
+        &[create_account_instruction, initialize_account_instruction],
+        Some(&payer.pubkey()),
+    );
+    transaction.sign(&[&payer, &token_account_keypair], recent_blockhash);
+
+    // Send and confirm the transaction
+    Ok(rpc_client.send_and_confirm_transaction(&transaction)?)
+}
+
+pub fn mint_to_account(
+    rpc_client: &RpcClient,
+    payer: &Keypair,
+    mint_keypair: &Keypair,
+    token_account_keypair: &Keypair,
+    amount: u64,
+) -> Result<Signature, Box<dyn Error>> {
+    let token_program_id = spl_token::id();
+
+    // Create an instruction to mint tokens to the destination account
+    let mint_to_instruction = mint_to(
+        &token_program_id,
+        &mint_keypair.pubkey(),
+        &token_account_keypair.pubkey(),
+        &payer.pubkey(),
+        &[&payer.pubkey()],
+        amount,
+    )?;
+
+    // Create a transaction that includes the mint_to instruction
+    let recent_blockhash = rpc_client.get_latest_blockhash()?;
+    let mut transaction = Transaction::new_with_payer(
+        &[mint_to_instruction],
+        Some(&payer.pubkey()),
+    );
+    transaction.sign(&[&payer, &payer], recent_blockhash);
+
+    // Send and confirm the transaction
+    Ok(rpc_client.send_and_confirm_transaction(&transaction)?)
+}
+
+pub fn check_account_balance(
+    rpc_client: &RpcClient,
+    token_account_keypair: &Keypair,
+) -> Result<u64, Box<dyn Error>> {
+    let account = rpc_client.get_account(&token_account_keypair.pubkey())?;
+    let account_data = Account::unpack(&account.data)?;
+    Ok(account_data.amount)
 }

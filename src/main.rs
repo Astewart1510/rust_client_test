@@ -1,9 +1,13 @@
+use rust_client_test::check_account_balance;
 use rust_client_test::check_balance;
 use rust_client_test::fetch_deserialise_my_movie;
+use rust_client_test::initialize_token_account;
+use rust_client_test::mint_to_account;
 use rust_client_test::movie_review_transaction;
 use rust_client_test::MyMovie;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{signature::Keypair, signer::Signer};
+use rust_client_test::initialize_token_mint;
 
 const URL: &str = "https://api.devnet.solana.com";
 
@@ -16,26 +20,44 @@ fn main() {
         "balance: {:?}",
         (check_balance(&rpc_client, &keypair.pubkey()).unwrap())
     );
-    println!("Hello, Movie Review Transaction!");
+    println!("Hello, mint token transaction!");
+    println!("Create new keypair for token mint account...");
+    let mint_account_keypair = Keypair::new();
+    println!("Mint account keypair: {:?}", mint_account_keypair.pubkey());
+    println!("Create new keypair for token account...");
+    let token_account_keypair = Keypair::new();
+    println!("1. Initialize token mint account...");
+    match initialize_token_mint(&rpc_client, &keypair, &mint_account_keypair) {
+        Ok(signature) => {
+            println!("Successful initailisation of mint account : Signature: {:?}", signature);
 
-    // match movie_review_transaction(&rpc_client, &keypair) {
-    //     Ok(signature) => {
-    //         println!(
-    //             "Movie transaction was successful, signature: {:?}",
-    //             signature
-    //         );
-    //     }
-    //     Err(e) => {
-    //         println!("Error: {:?}", e);
-    //     }
-    // }
-
-    let movie_data = MyMovie {
-        initialized: true,
-        rating: 5,
-        title: "The Matrix".to_string(),
-        description: "A movie about a little family with super powers.".to_string(),
-    };
-    let result = fetch_deserialise_my_movie(&rpc_client, &keypair, &movie_data);
-    println!("{:?}", result);
+            println!("2. Initialize token holding account...");
+            match initialize_token_account(&rpc_client, &keypair, &mint_account_keypair, &token_account_keypair) {
+                Ok(signature) => {
+                    println!("Successfull initailisation of token holding account : Signature: {:?}", signature);
+                    // Rest of your code here
+                    // Mint 100 tokens to the token account
+                    println!("3. Mint 100 tokens to the token account...");
+                    match mint_to_account(&rpc_client, &keypair, &mint_account_keypair, &token_account_keypair, 100) {
+                        Ok(signature) => {
+                            println!("Successfully minted 100 tokens to the token account: Signature: {:?}", signature);
+                        }
+                        Err(e) => {
+                            println!("Error: {:?}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("Error: {:?}", e);
+                }
+            }
+        }
+        Err(e) => {
+            println!("Error: {:?}", e);
+        }
+    }
+    
+    let account_balance = check_account_balance(&rpc_client, &token_account_keypair).unwrap();
+    println!("Account balance: {:?}", account_balance);
+    assert_eq!(account_balance, 100);
 }
