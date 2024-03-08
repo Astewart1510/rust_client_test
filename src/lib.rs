@@ -222,3 +222,21 @@ pub fn check_account_balance(
     let account_data = Account::unpack(&account.data)?;
     Ok(account_data.amount)
 }
+
+pub fn send_hello_world_transaction(
+    rpc_client: &RpcClient,
+    sender: &Keypair,
+    program_id: &Pubkey,
+) -> Result<Signature, Box<dyn Error>> {
+    let instruction = Instruction {
+        program_id: *program_id,
+        accounts: vec![],
+        data: vec![], // You can pass instruction-specific data here.
+    };
+
+    let recent_blockhash = rpc_client.get_latest_blockhash()?;
+    let mut transaction = Transaction::new_with_payer(&[instruction], Some(&sender.pubkey()));
+    transaction.sign(&[sender], recent_blockhash);
+
+    Ok(rpc_client.send_and_confirm_transaction(&transaction)?)
+}
